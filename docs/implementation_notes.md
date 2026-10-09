@@ -1,27 +1,34 @@
 # Implementation Notes
 
 ## Architecture
-Single Prompt Agent (from Topics 1-3) linked to one Retell Knowledge Base with 3 source documents. Prompt holds behavior only; facts live in the KB.
+Single Prompt Agent linked to one Retell Knowledge Base with three source documents. The prompt controls behavior; factual service, pricing, and policy information lives in the knowledge base.
 
 ## Assumptions
-- ASM-001: Source documents were reviewed for accuracy before upload.
-- ASM-002: Sources contain no contradictions; changes update the source rather than appending.
+- **ASM-001:** Source documents were reviewed for accuracy before upload.
+- **ASM-002:** Sources contain no contradictions; when information changes, update the source rather than appending conflicting content.
+- The recorded test results describe Retell Test LLM text-chat runs; they are not evidence of live voice-call testing.
 
 ## Limitations
-- Rescheduling, pest control and other topics are intentionally not covered; the agent escalates.
-- Answers depend on retrieval quality; re-test after any source edit.
-- Tests 8, 9 and 10 were run before the final prompt change (Repeated Question Rule added after Test 11). They were not re-run with the final prompt to conserve test credits. Re-running them is recommended before production use.
-- Testing was done with the Retell Test LLM (text chat), not live voice calls.
+- Rescheduling, pest control, and other undocumented topics are intentionally not answered from guesswork; the agent offers escalation.
+- Answers depend on retrieval quality. Re-test after any knowledge-base or prompt edit.
+- Tests 8, 9, and 10 were run before the final prompt change (the Repeated Question Rule was added after Test 11). They were not re-run with the final prompt to conserve test credits. Re-running them is recommended before production use.
+- Testing was performed with Retell Test LLM (text chat), not live voice calls.
+- Test 11's first prompt version failed to escalate on the repeated question; the tuned version produced the required exact handoff response.
 
 ## Possible Enhancements
-- Add a rescheduling policy document if the business defines one.
-- Add more near-miss test questions (e.g., recurring vs one-time pricing).
-- Log retrieved chunks per call for audit.
+- Add a rescheduling policy document if BrightHome formally defines one.
+- Add more near-miss test questions (for example, recurring versus one-time pricing).
+- Log retrieved knowledge-base chunks per call for auditability.
+- Re-run Tests 8–10 with the final prompt and complete a full regression run before production use.
 
-## Tuning Log
-- Test 4 (ZIP 60707), attempt 1: agent said the ZIP was "not on file" and offered a team member. It did not guess, but it did not clearly say "not serviced" as expected. Result: Fail.
-- Fix: edited the Service Area & Eligibility source and added the line "ZIP codes not listed above are not currently serviced by BrightHome." under the ZIP list. Followed the doc guidance: fix source structure first, prompt unchanged.
-- Test 4, attempt 2 after fix: agent said BrightHome does not currently service ZIP 60707. Result: Pass.
-- Test 11 (repeated question), attempts 1-2: with the original Escalation Triggers rule only, the agent refused correctly the 1st time but on the 2nd identical question it again asked 'would you like that?' and said the service 'isn't listed among our offered services' instead of escalating. Result: Fail.
-- Fix: prompt-level (escalation is behavior, not a retrievable fact). Added a 'Repeated Question Rule' with an exact handoff line, and a rule to never say 'not offered'/'not listed' unless the retrieved content says so.
-- Test 11, attempt 3 after fix: 1st time 'not on file'; 2nd time 'I'm connecting you with a team member now who can help with that.' Result: Pass.
+## Tuning
+
+### Fix A — ZIP 60707 eligibility (Test 4)
+- **What was wrong:** On the first attempt, the agent said ZIP 60707 was "not on file" and offered a team member. It did not guess, but it also did not clearly answer that the ZIP was not serviced, which was the expected behavior.
+- **What changed:** Updated `knowledge_base/03_service_area_eligibility.md` by adding the explicit sentence: **"ZIP codes not listed above are not currently serviced by BrightHome."** under the serviced ZIP-code list.
+- **Verified outcome:** On the next attempt, the agent stated that BrightHome does not currently service ZIP 60707. Test 4 is recorded as **PASS after fix**.
+
+### Fix B — Repeated-question escalation (Test 11)
+- **What was wrong:** With the earlier prompt, the second identical question did not escalate. The agent said carpet shampooing "isn't listed among offered services"—a claim not stated in the knowledge base—and asked "would you like that?" instead of handing off.
+- **What changed:** Added the highest-priority **Repeated Question Rule** requiring the exact response, **"I'm connecting you with a team member now who can help with that."** Also added the rule: **Never say a service is "not offered" or "not listed" unless that is explicitly stated in the retrieved content.**
+- **Verified outcome:** After the prompt fix, the second question received the required exact handoff response. Test 11 is recorded as **FAIL before fix; PASS after fix**.
